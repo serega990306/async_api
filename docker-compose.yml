@@ -1,0 +1,62 @@
+version: '3'
+services:
+
+  elasticsearch:
+    container_name: sprint_4_elasticsearch
+    image: elasticsearch:8.6.2
+    ports:
+      - 9200:9200
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+    networks:
+      - elasticsearch_network
+    healthcheck:
+      test: "elasticsearch:9200/_cluster/health?wait_for_status=yellow&timeout=30s"
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    container_name: sprint_4_redis
+    image: redis
+    ports:
+      - 6379:6379
+    networks:
+      - elasticsearch_network
+
+  etl_manager:
+    container_name: sprint_4_etl_manager
+    build:
+      context: ./postgres_to_es
+      dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - elasticsearch_network
+
+  db:
+    container_name: sprint_4_postgres
+    image: postgres:13
+    volumes:
+      - ./dbdump.sql:/docker-entrypoint-initdb.d/dbdump.sql
+      - postgres_data:/var/lib/postgresql/data/
+    env_file:
+      - ./.env.db
+    networks:
+      - elasticsearch_network
+    healthcheck:
+      test: "pg_isready --username=app -d movies_database"
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+
+networks:
+  elasticsearch_network:
+    driver: bridge

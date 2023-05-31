@@ -1,3 +1,4 @@
+
 from functools import lru_cache
 from typing import Optional, List
 
@@ -26,7 +27,21 @@ class FilmService:
     async def _get_all_from_elastic(self, genre, query, page_from, page_size) -> List[Film]:
         try:
             if genre:
-                body = {"query": {"bool": {"must": [{"term": {"genre": genre}}]}}}
+                body = {
+                  "query": {
+                    "nested": {
+                      "path": "genre",
+                      "query": {
+                        "bool": {
+                          "must": [
+                            {"match": {"genre.id": genre}}
+                          ]
+                        }
+                      },
+                      "score_mode": "avg"
+                    }
+                  }
+                }
             elif query:
                 body = {"query": {
                     "match": {
